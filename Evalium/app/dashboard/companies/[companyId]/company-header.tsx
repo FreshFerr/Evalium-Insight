@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, MoreHorizontal, RefreshCw, Trash2, Download } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, RefreshCw, Trash2, Download, FileSpreadsheet, Presentation, Loader2 } from 'lucide-react';
 import { deleteCompany, refreshCompanyFinancials } from '@/lib/actions/company';
 import { useToast } from '@/components/ui/use-toast';
 import { Company, FinancialStatement, Report } from '@prisma/client';
@@ -40,8 +40,12 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // M-2: Loading states for export
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingPowerPoint, setIsExportingPowerPoint] = useState(false);
 
   const hasPaidReport = company.reports.some((r) => r.status === 'PAID');
+  const hasProPlus = company.reports.some((r) => r.status === 'PAID' && r.type === 'BENCHMARK');
   const latestYear = company.financialStatements[0]?.fiscalYear;
 
   const handleRefresh = async () => {
@@ -85,6 +89,81 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
     }
   };
 
+  // M-2: Export handlers with loading states
+  const handleExportExcel = async () => {
+    setIsExportingExcel(true);
+    try {
+      const response = await fetch(`/api/export/excel?companyId=${company.id}`);
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Errore durante l\'esportazione');
+      }
+      
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Evalium_${company.legalName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: 'Export completato',
+        description: 'Il file Excel è stato scaricato.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Errore',
+        description: error instanceof Error ? error.message : 'Impossibile esportare in Excel.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleExportPowerPoint = async () => {
+    setIsExportingPowerPoint(true);
+    try {
+      const response = await fetch(`/api/export/powerpoint?companyId=${company.id}`);
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Errore durante l\'esportazione');
+      }
+      
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Evalium_${company.legalName.replace(/[^a-zA-Z0-9]/g, '_')}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: 'Export completato',
+        description: 'La presentazione PowerPoint è stata scaricata.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Errore',
+        description: error instanceof Error ? error.message : 'Impossibile esportare in PowerPoint.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExportingPowerPoint(false);
+    }
+  };
+
+  const isExporting = isExportingExcel || isExportingPowerPoint;
+
   return (
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -98,7 +177,8 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
           </Link>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{company.legalName}</h1>
-            {hasPaidReport && <Badge variant="success">Pro</Badge>}
+            {hasProPlus && <Badge variant="success">Pro Plus</Badge>}
+            {hasPaidReport && !hasProPlus && <Badge variant="success">Pro</Badge>}
           </div>
           <p className="text-muted-foreground mt-1">
             {company.vatNumber && <span>{company.vatNumber} • </span>}
@@ -115,14 +195,49 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
             disabled={isRefreshing}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Aggiorna dati
+            {isRefreshing ? 'Aggiornamento...' : 'Aggiorna dati'}
           </Button>
 
+          {/* M-2: Export dropdown with loading states */}
           {hasPaidReport && (
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Esporta
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isExporting}>
+                  {isExporting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isExporting ? 'Preparazione file...' : 'Esporta'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={handleExportExcel}
+                  disabled={isExportingExcel}
+                >
+                  {isExportingExcel ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  )}
+                  {isExportingExcel ? 'Generazione Excel...' : 'Esporta in Excel'}
+                </DropdownMenuItem>
+                {hasProPlus && (
+                  <DropdownMenuItem 
+                    onClick={handleExportPowerPoint}
+                    disabled={isExportingPowerPoint}
+                  >
+                    {isExportingPowerPoint ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Presentation className="mr-2 h-4 w-4" />
+                    )}
+                    {isExportingPowerPoint ? 'Generazione PowerPoint...' : 'Esporta in PowerPoint'}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           <DropdownMenu>
@@ -132,8 +247,8 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleRefresh}>
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={handleRefresh} disabled={isRefreshing}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 Aggiorna dati
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -161,13 +276,13 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Annulla</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeleting}
             >
-              {isDeleting ? 'Eliminazione...' : 'Elimina'}
+              {isDeleting ? 'Eliminazione in corso...' : 'Elimina'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -175,4 +290,3 @@ export function CompanyHeader({ company }: CompanyHeaderProps) {
     </>
   );
 }
-

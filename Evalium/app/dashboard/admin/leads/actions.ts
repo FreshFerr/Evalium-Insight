@@ -17,7 +17,7 @@ export async function updateLeadStatus(
   const session = await auth();
 
   if (!session?.user?.id || session.user.role !== UserRole.ADMIN) {
-    return { success: false, error: 'Non autorizzato' };
+    return { success: false, error: 'Non autorizzato. Solo gli amministratori possono modificare i lead.' };
   }
 
   try {
@@ -35,7 +35,7 @@ export async function updateLeadStatus(
     return { success: true };
   } catch (error) {
     console.error('Update lead status error:', error);
-    return { success: false, error: 'Errore durante l\'aggiornamento' };
+    return { success: false, error: 'Qualcosa è andato storto durante l\'aggiornamento. Riprova più tardi.' };
   }
 }
 

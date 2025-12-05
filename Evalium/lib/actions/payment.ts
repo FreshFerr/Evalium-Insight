@@ -1,6 +1,5 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import prisma from '@/db';
 import { createCheckoutSession, getProductConfig } from '@/lib/payment/stripe';
@@ -14,6 +13,7 @@ export interface CheckoutResult {
 
 /**
  * Create a Stripe checkout session for a report purchase
+ * M-7: Uses Prisma transaction to create Report + Purchase atomically
  */
 export async function createReportCheckout(
   companyId: string,
@@ -22,7 +22,7 @@ export async function createReportCheckout(
   const session = await auth();
 
   if (!session?.user?.id || !session.user.email) {
-    return { success: false, error: 'Non autorizzato' };
+    return { success: false, error: 'Non autorizzato. Effettua il login per continuare.' };
   }
 
   try {
@@ -35,13 +35,13 @@ export async function createReportCheckout(
     });
 
     if (!company) {
-      return { success: false, error: 'Azienda non trovata' };
+      return { success: false, error: 'Azienda non trovata o non hai i permessi per accedervi.' };
     }
 
     // Get product config
     const product = getProductConfig(planType);
     if (!product) {
-      return { success: false, error: 'Piano non valido' };
+      return { success: false, error: 'Il piano selezionato non è valido.' };
     }
 
     // Check if user already has a paid report of this type
@@ -54,31 +54,37 @@ export async function createReportCheckout(
     });
 
     if (existingReport) {
-      return { success: false, error: 'Hai già acquistato questo report' };
+      return { success: false, error: 'Hai già acquistato questo report per questa azienda.' };
     }
 
-    // Create a pending report
-    const report = await prisma.report.create({
-      data: {
-        companyId,
-        type: planType === 'pro' ? 'FULL_ANALYSIS' : 'BENCHMARK',
-        status: 'CREATED',
-      },
+    // M-7: Create Report and Purchase in a single transaction
+    // This ensures both records are created together or neither is created
+    const { report } = await prisma.$transaction(async (tx) => {
+      // Create a pending report
+      const newReport = await tx.report.create({
+        data: {
+          companyId,
+          type: planType === 'pro' ? 'FULL_ANALYSIS' : 'BENCHMARK',
+          status: 'CREATED',
+        },
+      });
+
+      // Create pending purchase linked to the report
+      await tx.purchase.create({
+        data: {
+          userId: session.user.id,
+          reportId: newReport.id,
+          productType: product.type,
+          amount: product.amount / 100, // Convert from cents
+          currency: 'EUR',
+          status: 'PENDING',
+        },
+      });
+
+      return { report: newReport };
     });
 
-    // Create pending purchase
-    await prisma.purchase.create({
-      data: {
-        userId: session.user.id,
-        reportId: report.id,
-        productType: product.type,
-        amount: product.amount / 100, // Convert from cents
-        currency: 'EUR',
-        status: 'PENDING',
-      },
-    });
-
-    // Create Stripe checkout session
+    // Create Stripe checkout session (external call, outside transaction)
     const baseUrl = APP_CONFIG.url;
     const checkoutSession = await createCheckoutSession({
       userId: session.user.id,
@@ -91,7 +97,9 @@ export async function createReportCheckout(
     });
 
     if (!checkoutSession.url) {
-      throw new Error('Failed to create checkout session');
+      // If Stripe fails, we should clean up the pending records
+      // However, the webhook will handle this if payment never completes
+      throw new Error('Stripe checkout session URL not generated');
     }
 
     return {
@@ -102,38 +110,44 @@ export async function createReportCheckout(
     console.error('Checkout error:', error);
     return {
       success: false,
-      error: 'Si è verificato un errore durante la creazione del pagamento',
+      error: 'Non è stato possibile avviare il pagamento. Riprova tra qualche minuto.',
     };
   }
 }
 
 /**
- * Handle successful payment
+ * Handle successful payment (called from success page)
+ * M-7: Uses transaction for atomic update of Report + Purchase
  */
 export async function handlePaymentSuccess(
   sessionId: string,
   reportId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Update report status
-    await prisma.report.update({
-      where: { id: reportId },
-      data: { status: 'PAID' },
-    });
+    // M-7: Wrap updates in transaction
+    await prisma.$transaction(async (tx) => {
+      // Update report status
+      await tx.report.update({
+        where: { id: reportId },
+        data: { status: 'PAID' },
+      });
 
-    // Update purchase status
-    await prisma.purchase.updateMany({
-      where: { reportId },
-      data: {
-        stripeCheckoutSessionId: sessionId,
-        status: 'PAID',
-      },
+      // Update purchase status
+      await tx.purchase.updateMany({
+        where: { reportId },
+        data: {
+          stripeCheckoutSessionId: sessionId,
+          status: 'PAID',
+        },
+      });
     });
 
     return { success: true };
   } catch (error) {
     console.error('Payment success handler error:', error);
-    return { success: false, error: 'Errore durante l\'aggiornamento del pagamento' };
+    return { 
+      success: false, 
+      error: 'Qualcosa è andato storto durante l\'attivazione del report. Contatta l\'assistenza.' 
+    };
   }
 }
-

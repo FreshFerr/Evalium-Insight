@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const session = await auth();
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 });
+    return NextResponse.json({ error: 'Non autorizzato. Effettua il login per continuare.' }, { status: 401 });
   }
 
   // H-6: Apply rate limiting
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const companyId = searchParams.get('companyId');
 
   if (!companyId) {
-    return NextResponse.json({ error: 'Company ID richiesto' }, { status: 400 });
+    return NextResponse.json({ error: 'ID azienda non specificato.' }, { status: 400 });
   }
 
   try {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!company) {
-      return NextResponse.json({ error: 'Azienda non trovata' }, { status: 404 });
+      return NextResponse.json({ error: 'Azienda non trovata o non hai i permessi per accedervi.' }, { status: 404 });
     }
 
     // Step 2: Explicitly verify a PAID BENCHMARK report exists for this company
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('PowerPoint export error:', error);
     return NextResponse.json(
-      { error: 'Errore durante la generazione del file' },
+      { error: 'Qualcosa è andato storto durante la generazione del file. Riprova più tardi.' },
       { status: 500 }
     );
   }
