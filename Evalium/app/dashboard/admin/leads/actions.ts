@@ -6,6 +6,8 @@ import prisma from '@/db';
 import { LeadStatus, UserRole } from '@prisma/client';
 import { createMAndALeadSchema } from '@/lib/validations/company';
 import { logError } from '@/lib/logger';
+import { sendMAndALeadEmail } from '@/lib/email/ma-lead';
+import { extractKPIs } from '@/lib/financial-logic/kpi';
 
 /**
  * Update M&A lead status (Admin only)
@@ -73,7 +75,7 @@ export async function createMAndALead(
   const { companyId, email, phone, score, highlights } = validationResult.data;
 
   try {
-    // Verify company ownership
+    // Verify company ownership and fetch related data
     const company = await prisma.company.findFirst({
       where: {
         id: companyId,
@@ -83,6 +85,18 @@ export async function createMAndALead(
         financialStatements: {
           orderBy: { fiscalYear: 'desc' },
           take: 1,
+        },
+        reports: {
+          select: {
+            type: true,
+            status: true,
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
         },
       },
     });
@@ -126,6 +140,37 @@ export async function createMAndALead(
         consentDate: new Date(),
       },
     });
+
+    // Send email notification (don't fail lead creation if email fails)
+    try {
+      const latestKPIs = latestStatement ? extractKPIs(latestStatement) : null;
+      const isPayingCustomer = company.reports.some((r) => r.status === 'PAID');
+
+      await sendMAndALeadEmail({
+        leadId: lead.id,
+        company: {
+          legalName: company.legalName,
+          country: company.country,
+          lastYearRevenue: latestKPIs?.revenue ?? null,
+          lastYearEbitda: latestKPIs?.ebitda ?? null,
+          lastYearEbitdaMargin: latestKPIs?.ebitdaMargin ?? null,
+          netDebt: latestKPIs?.netDebt ?? null,
+        },
+        user: {
+          name: company.user.name,
+          email: email,
+          phone: phone || null,
+        },
+        isPayingCustomer,
+        reports: company.reports.map((r) => ({
+          type: r.type,
+          status: r.status,
+        })),
+      });
+    } catch (emailError) {
+      // Log error but don't fail the lead creation
+      logError('Failed to send M&A lead notification email', emailError);
+    }
 
     revalidatePath('/dashboard/admin/leads');
 

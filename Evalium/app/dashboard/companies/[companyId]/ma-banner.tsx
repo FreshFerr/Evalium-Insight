@@ -71,8 +71,8 @@ export function MABanner({ companyId, score, highlights, summary }: MABannerProp
       if (result.success) {
         setSubmitted(true);
         toast({
-          title: 'Richiesta inviata!',
-          description: 'Un nostro advisor ti contatterà presto.',
+          title: 'Richiesta registrata!',
+          description: 'Valuteremo i tuoi dati e, se il profilo è adatto, ti contatteremo per approfondire in modo riservato.',
         });
       } else {
         setFormError(result.error || 'Si è verificato un errore. Riprova.');
@@ -168,10 +168,9 @@ export function MABanner({ companyId, score, highlights, summary }: MABannerProp
           {submitted ? (
             <div className="py-8 text-center">
               <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Richiesta ricevuta!</h3>
+              <h3 className="text-xl font-semibold mb-2">Richiesta registrata!</h3>
               <p className="text-muted-foreground">
-                Un advisor della nostra rete di partner ti contatterà 
-                in modo riservato per discutere le opportunità.
+                Valuteremo i tuoi dati e, se il profilo è adatto, ti contatteremo per approfondire in modo riservato.
               </p>
               <Button className="mt-6" onClick={() => setShowDialog(false)}>
                 Chiudi
