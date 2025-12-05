@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import prisma from '@/db';
 import { LeadStatus, UserRole } from '@prisma/client';
 import { createMAndALeadSchema } from '@/lib/validations/company';
+import { logError } from '@/lib/logger';
 
 /**
  * Update M&A lead status (Admin only)
@@ -34,7 +35,7 @@ export async function updateLeadStatus(
 
     return { success: true };
   } catch (error) {
-    console.error('Update lead status error:', error);
+    logError('Update lead status error', error);
     return { success: false, error: 'Qualcosa è andato storto durante l\'aggiornamento. Riprova più tardi.' };
   }
 }
@@ -130,7 +131,7 @@ export async function createMAndALead(
 
     return { success: true, leadId: lead.id };
   } catch (error) {
-    console.error('Create M&A lead error:', error);
+    logError('Create M&A lead error', error);
     return { success: false, error: 'Errore durante l\'invio della richiesta. Riprova più tardi.' };
   }
 }

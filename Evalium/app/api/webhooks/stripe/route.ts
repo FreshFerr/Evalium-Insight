@@ -4,6 +4,7 @@ import { constructWebhookEvent } from '@/lib/payment/stripe';
 import prisma from '@/db';
 import Stripe from 'stripe';
 import { z } from 'zod';
+import { logger, logError } from '@/lib/logger';
 
 // H-5: Zod schema for validating Stripe metadata
 const StripeMetadataSchema = z.object({
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   try {
     event = await constructWebhookEvent(body, signature);
   } catch (error) {
-    console.error('Webhook signature verification failed:', error);
+    logError('Webhook signature verification failed', error);
     return NextResponse.json(
       { error: 'Invalid signature' },
       { status: 400 }
@@ -61,12 +62,12 @@ export async function POST(request: Request) {
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        logger.debug('Unhandled Stripe event type', { eventType: event.type });
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('Webhook handler error:', error);
+    logError('Webhook handler error', error);
     return NextResponse.json(
       { error: 'Webhook handler failed' },
       { status: 500 }
@@ -79,7 +80,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const metadataResult = StripeMetadataSchema.safeParse(session.metadata);
   
   if (!metadataResult.success) {
-    console.warn('Invalid webhook metadata:', metadataResult.error.errors);
+    logger.warn('Invalid webhook metadata', { errors: metadataResult.error.errors });
     return;
   }
 
@@ -92,29 +93,31 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   });
 
   if (!report) {
-    console.warn(`Report ${reportId} not found in webhook handler`);
+    logger.warn('Report not found in webhook handler', { reportId });
     return;
   }
 
   // H-2: Verify companyId matches
   if (report.companyId !== companyId) {
-    console.warn(
-      `Webhook ownership mismatch: report.companyId=${report.companyId} vs metadata.companyId=${companyId}`
-    );
+    logger.warn('Webhook ownership mismatch: companyId', {
+      reportCompanyId: report.companyId,
+      metadataCompanyId: companyId,
+    });
     return;
   }
 
   // H-2: Verify company belongs to userId
   if (report.company.userId !== userId) {
-    console.warn(
-      `Webhook ownership mismatch: company.userId=${report.company.userId} vs metadata.userId=${userId}`
-    );
+    logger.warn('Webhook ownership mismatch: userId', {
+      companyUserId: report.company.userId,
+      metadataUserId: userId,
+    });
     return;
   }
 
   // H-4: Check idempotency - if report is already PAID, skip processing
   if (report.status === 'PAID') {
-    console.log(`Report ${reportId} is already PAID, skipping duplicate webhook`);
+    logger.info('Report already PAID, skipping duplicate webhook', { reportId });
     return;
   }
 
@@ -137,7 +140,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     });
   });
 
-  console.log(`✅ Payment completed for report ${reportId}`);
+  logger.info('Payment completed for report', { reportId });
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
@@ -146,7 +149,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   
   if (!metadataResult.success) {
     // Metadata might be empty for payment intents not created via our checkout
-    console.log('PaymentIntent has no valid metadata, skipping');
+    logger.debug('PaymentIntent has no valid metadata, skipping');
     return;
   }
 
@@ -159,18 +162,18 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   });
 
   if (!report) {
-    console.warn(`Report ${reportId} not found for payment_intent.succeeded`);
+    logger.warn('Report not found for payment_intent.succeeded', { reportId });
     return;
   }
 
   if (report.companyId !== companyId || report.company.userId !== userId) {
-    console.warn(`Ownership mismatch in payment_intent.succeeded for report ${reportId}`);
+    logger.warn('Ownership mismatch in payment_intent.succeeded', { reportId });
     return;
   }
 
   // H-4: Check idempotency
   if (report.status === 'PAID') {
-    console.log(`Report ${reportId} already PAID, skipping payment_intent.succeeded`);
+    logger.info('Report already PAID, skipping payment_intent.succeeded', { reportId });
     return;
   }
 
@@ -190,7 +193,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     });
   });
 
-  console.log(`✅ Payment intent succeeded for report ${reportId}`);
+  logger.info('Payment intent succeeded for report', { reportId });
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
@@ -198,7 +201,7 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   const metadataResult = StripeMetadataSchema.safeParse(paymentIntent.metadata);
   
   if (!metadataResult.success) {
-    console.log('PaymentIntent has no valid metadata for failed payment');
+    logger.debug('PaymentIntent has no valid metadata for failed payment');
     return;
   }
 
@@ -213,5 +216,5 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     },
   });
 
-  console.log(`❌ Payment failed for report ${reportId}`);
+  logger.warn('Payment failed for report', { reportId });
 }

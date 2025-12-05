@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { logError } from '@/lib/logger';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -18,7 +19,7 @@ interface ErrorProps {
 export default function DashboardError({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log the error to an error reporting service
-    console.error('Dashboard error:', error);
+    logError('Dashboard error', error);
   }, [error]);
 
   return (

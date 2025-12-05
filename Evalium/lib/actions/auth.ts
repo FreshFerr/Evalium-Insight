@@ -5,7 +5,10 @@ import { signIn } from '@/lib/auth';
 import prisma from '@/db';
 import { registerSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations/auth';
 import { AuthError } from 'next-auth';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
+import { logger, logError } from '@/lib/logger';
+import { sendVerificationEmail } from '@/lib/email/verification';
+import { EMAIL_VERIFICATION_CONFIG } from '@/config/constants';
 
 export type ActionResult = {
   success: boolean;
@@ -15,6 +18,7 @@ export type ActionResult = {
 
 /**
  * Register a new user
+ * L-6: Implements email verification flow
  */
 export async function registerUser(formData: FormData): Promise<ActionResult> {
   const rawData = {
@@ -51,22 +55,62 @@ export async function registerUser(formData: FormData): Promise<ActionResult> {
     // Hash password
     const hashedPassword = await hash(password, 12);
 
-    // Create user
-    await prisma.user.create({
+    // L-6: Create user with emailVerified = null (pending verification)
+    const user = await prisma.user.create({
       data: {
         name,
         email: email.toLowerCase(),
         password: hashedPassword,
-        emailVerified: new Date(), // Auto-verify for now (TODO: implement email verification)
+        emailVerified: null, // Will be set when email is verified
       },
     });
 
+    // L-6: Generate verification token
+    const verificationToken = randomUUID();
+    const tokenExpiry = new Date(Date.now() + EMAIL_VERIFICATION_CONFIG.TOKEN_EXPIRY_MS);
+
+    // Delete any existing verification tokens for this email
+    await prisma.verificationToken.deleteMany({
+      where: { identifier: email.toLowerCase() },
+    });
+
+    // Create new verification token
+    await prisma.verificationToken.create({
+      data: {
+        identifier: email.toLowerCase(),
+        token: verificationToken,
+        expires: tokenExpiry,
+      },
+    });
+
+    // L-6: Send verification email
+    const emailResult = await sendVerificationEmail({
+      email: email.toLowerCase(),
+      token: verificationToken,
+      name,
+    });
+
+    if (!emailResult.success) {
+      logger.warn('Failed to send verification email, but user was created', {
+        email: email.toLowerCase(),
+        error: emailResult.error,
+      });
+    }
+
+    // Return appropriate message based on verification requirement
+    if (EMAIL_VERIFICATION_CONFIG.REQUIRE_EMAIL_VERIFICATION) {
+      return {
+        success: true,
+        message: 'Account creato! Controlla la tua email per verificare l\'account prima di accedere.',
+      };
+    }
+
     return {
       success: true,
-      message: 'Account creato con successo! Puoi ora accedere.',
+      message: 'Account creato con successo! Puoi ora accedere. Ti abbiamo inviato un\'email per verificare il tuo indirizzo.',
     };
   } catch (error) {
-    console.error('Registration error:', error);
+    logError('Registration error', error);
     return {
       success: false,
       error: 'Si è verificato un errore durante la registrazione',
@@ -76,6 +120,7 @@ export async function registerUser(formData: FormData): Promise<ActionResult> {
 
 /**
  * Login with credentials
+ * L-6: Enforces email verification if REQUIRE_EMAIL_VERIFICATION is true
  */
 export async function loginWithCredentials(formData: FormData): Promise<ActionResult> {
   const email = formData.get('email') as string;
@@ -86,6 +131,21 @@ export async function loginWithCredentials(formData: FormData): Promise<ActionRe
       success: false,
       error: 'Email e password sono obbligatorie',
     };
+  }
+
+  // L-6: Check email verification if required
+  if (EMAIL_VERIFICATION_CONFIG.REQUIRE_EMAIL_VERIFICATION) {
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: { emailVerified: true },
+    });
+
+    if (user && !user.emailVerified) {
+      return {
+        success: false,
+        error: 'Devi prima verificare la tua email. Controlla la posta in arrivo.',
+      };
+    }
   }
 
   try {
@@ -170,14 +230,14 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
     // In production, send email here
     // For development, log the reset link
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}`;
-    console.log('🔑 Password reset link:', resetUrl);
+    logger.debug('Password reset link generated', { resetUrl });
 
     return {
       success: true,
       message: 'Se l\'email esiste, riceverai un link per reimpostare la password',
     };
   } catch (error) {
-    console.error('Password reset request error:', error);
+    logError('Password reset request error', error);
     return {
       success: false,
       error: 'Si è verificato un errore. Riprova più tardi.',
@@ -247,7 +307,7 @@ export async function resetPassword(formData: FormData): Promise<ActionResult> {
       message: 'Password reimpostata con successo! Puoi ora accedere.',
     };
   } catch (error) {
-    console.error('Password reset error:', error);
+    logError('Password reset error', error);
     return {
       success: false,
       error: 'Si è verificato un errore. Riprova più tardi.',

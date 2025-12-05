@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { logError } from '@/lib/logger';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -16,7 +17,7 @@ interface ErrorProps {
  */
 export default function MarketingError({ error, reset }: ErrorProps) {
   useEffect(() => {
-    console.error('Marketing page error:', error);
+    logError('Marketing page error', error);
   }, [error]);
 
   return (

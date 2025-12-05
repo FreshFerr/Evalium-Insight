@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { PRICING, PRICING_PLANS } from '@/config/constants';
 
 function getStripeInstance(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -39,35 +40,27 @@ export interface ProductConfig {
   features: string[];
 }
 
+/**
+ * L-5: Product config now uses centralized PRICING constants
+ * Prices are configurable via environment variables
+ */
 export function getProductConfig(planType: string): ProductConfig | null {
   const products: Record<string, ProductConfig> = {
     pro: {
       type: 'SINGLE_REPORT',
-      name: 'Analisi Pro',
-      description: 'Analisi completa del bilancio con benchmark 3 competitor',
-      priceId: process.env.STRIPE_PRICE_FULL_ANALYSIS || '',
-      amount: 49_00, // in cents
-      features: [
-        'Analisi dettagliata del bilancio',
-        'Benchmark con 3 competitor',
-        'Grafici di trend multi-anno',
-        'Raccomandazioni data-driven',
-        'Export Excel',
-      ],
+      name: PRICING_PLANS.PRO.name,
+      description: PRICING_PLANS.PRO.description,
+      priceId: PRICING_PLANS.PRO.priceId || '',
+      amount: PRICING.PRO * 100, // Convert EUR to cents
+      features: [...PRICING_PLANS.PRO.features], // Spread to make mutable
     },
     pro_plus: {
       type: 'BENCHMARK_UNLIMITED',
-      name: 'Analisi Pro Plus',
-      description: 'Analisi completa con benchmark illimitati e export PowerPoint',
-      priceId: process.env.STRIPE_PRICE_BENCHMARK_UNLIMITED || '',
-      amount: 99_00, // in cents
-      features: [
-        'Tutto del piano Pro',
-        'Benchmark con competitor illimitati',
-        'Export PowerPoint professionale',
-        'Report brandizzati',
-        'Supporto prioritario',
-      ],
+      name: PRICING_PLANS.PRO_PLUS.name,
+      description: PRICING_PLANS.PRO_PLUS.description,
+      priceId: PRICING_PLANS.PRO_PLUS.priceId || '',
+      amount: PRICING.PRO_PLUS * 100, // Convert EUR to cents
+      features: [...PRICING_PLANS.PRO_PLUS.features], // Spread to make mutable
     },
   };
 

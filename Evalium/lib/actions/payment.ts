@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import prisma from '@/db';
 import { createCheckoutSession, getProductConfig } from '@/lib/payment/stripe';
 import { APP_CONFIG } from '@/config/constants';
+import { logError } from '@/lib/logger';
 
 export interface CheckoutResult {
   success: boolean;
@@ -107,7 +108,7 @@ export async function createReportCheckout(
       checkoutUrl: checkoutSession.url,
     };
   } catch (error) {
-    console.error('Checkout error:', error);
+    logError('Checkout error', error);
     return {
       success: false,
       error: 'Non è stato possibile avviare il pagamento. Riprova tra qualche minuto.',
@@ -144,7 +145,7 @@ export async function handlePaymentSuccess(
 
     return { success: true };
   } catch (error) {
-    console.error('Payment success handler error:', error);
+    logError('Payment success handler error', error);
     return { 
       success: false, 
       error: 'Qualcosa è andato storto durante l\'attivazione del report. Contatta l\'assistenza.' 

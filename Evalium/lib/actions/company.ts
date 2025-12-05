@@ -6,6 +6,7 @@ import prisma from '@/db';
 import { getRateLimitedProvider, FinancialDataRateLimitError } from '@/lib/financial-data';
 import { createCompanySchema } from '@/lib/validations/company';
 import { FINANCIAL_CONFIG } from '@/config/constants';
+import { logError } from '@/lib/logger';
 import type { FinancialStatementData } from '@/lib/financial-data/types';
 
 export type ActionResult<T = void> = {
@@ -83,7 +84,7 @@ export async function createCompany(formData: FormData): Promise<ActionResult<{ 
         if (e instanceof FinancialDataRateLimitError) {
           return { success: false, error: e.message };
         }
-        console.error('Error fetching financials:', e);
+        logError('Error fetching financials', e);
         // Continue without financials - we can still create the company
       }
     }
@@ -161,7 +162,7 @@ export async function createCompany(formData: FormData): Promise<ActionResult<{ 
       data: { companyId: company.id },
     };
   } catch (error) {
-    console.error('Create company error:', error);
+    logError('Create company error', error);
     return {
       success: false,
       error: 'Qualcosa è andato storto durante la creazione dell\'azienda. Riprova più tardi.',
@@ -202,7 +203,7 @@ export async function deleteCompany(companyId: string): Promise<ActionResult> {
 
     return { success: true };
   } catch (error) {
-    console.error('Delete company error:', error);
+    logError('Delete company error', error);
     return {
       success: false,
       error: 'Qualcosa è andato storto durante l\'eliminazione. Riprova più tardi.',
@@ -310,7 +311,7 @@ export async function refreshCompanyFinancials(companyId: string): Promise<Actio
 
     return { success: true };
   } catch (error) {
-    console.error('Refresh financials error:', error);
+    logError('Refresh financials error', error);
     return {
       success: false,
       error: 'Qualcosa è andato storto durante l\'aggiornamento dei dati. Riprova più tardi.',

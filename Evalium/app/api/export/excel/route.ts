@@ -8,6 +8,7 @@ import {
   rateLimitExceededResponse,
   RATE_LIMIT_CONFIGS,
 } from '@/lib/rate-limit';
+import { logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Excel export error:', error);
+    logError('Excel export error', error);
     return NextResponse.json(
       { error: 'Qualcosa è andato storto durante la generazione del file. Riprova più tardi.' },
       { status: 500 }

@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, TrendingUp, X, CheckCircle2, Phone, Mail, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { createMAndALead } from '@/app/dashboard/admin/leads/actions';
+import { logError } from '@/lib/logger';
 
 interface MABannerProps {
   companyId: string;
@@ -82,7 +83,7 @@ export function MABanner({ companyId, score, highlights, summary }: MABannerProp
         });
       }
     } catch (error) {
-      console.error('M&A lead submission error:', error);
+      logError('M&A lead submission error', error);
       setFormError('Si è verificato un errore imprevisto. Riprova più tardi.');
       toast({
         title: 'Errore',

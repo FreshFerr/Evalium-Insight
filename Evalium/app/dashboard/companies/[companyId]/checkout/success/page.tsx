@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
 import { retrieveSession } from '@/lib/payment/stripe';
+import { logError } from '@/lib/logger';
 
 interface SuccessPageProps {
   params: Promise<{ companyId: string }>;
@@ -72,7 +73,7 @@ export default async function CheckoutSuccessPage({ params, searchParams }: Succ
       });
     }
   } catch (error) {
-    console.error('Error verifying Stripe session:', error);
+    logError('Error verifying Stripe session', error);
     // Continue anyway - webhook might have already processed this
   }
 

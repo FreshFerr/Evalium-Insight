@@ -3,23 +3,24 @@
  */
 
 // ===========================================
-// M&A Thresholds
+// M&A Thresholds (env-aware)
+// L-5: M&A thresholds are now configurable via environment variables
 // ===========================================
 export const MA_CONFIG = {
-  /** Minimum revenue in EUR to be considered for M&A */
-  REVENUE_THRESHOLD: Number(process.env.MA_REVENUE_THRESHOLD) || 2_000_000,
+  /** Minimum revenue in EUR to be considered for M&A (default: €2,000,000) */
+  REVENUE_THRESHOLD: Number(process.env.NEXT_PUBLIC_MA_REVENUE_THRESHOLD ?? 2_000_000),
   
-  /** Minimum EBITDA margin (as decimal) */
-  EBITDA_MARGIN_THRESHOLD: Number(process.env.MA_EBITDA_MARGIN_THRESHOLD) || 0.10,
+  /** Minimum EBITDA margin as decimal (default: 0.10 = 10%) */
+  EBITDA_MARGIN_THRESHOLD: Number(process.env.NEXT_PUBLIC_MA_EBITDA_MARGIN_THRESHOLD ?? 0.10),
   
-  /** Minimum EBITDA in EUR */
-  EBITDA_THRESHOLD: Number(process.env.MA_EBITDA_THRESHOLD) || 200_000,
+  /** Minimum EBITDA in EUR (default: €200,000) */
+  EBITDA_THRESHOLD: Number(process.env.NEXT_PUBLIC_MA_EBITDA_THRESHOLD ?? 200_000),
   
-  /** Minimum revenue growth rate (YoY) to be attractive */
-  GROWTH_THRESHOLD: 0.05,
+  /** Minimum revenue growth rate YoY (default: 5%) */
+  GROWTH_THRESHOLD: Number(process.env.NEXT_PUBLIC_MA_GROWTH_THRESHOLD ?? 0.05),
   
-  /** Score threshold to show M&A banner (0-100) */
-  SCORE_THRESHOLD: 60,
+  /** Score threshold to show M&A banner, 0-100 (default: 60) */
+  SCORE_THRESHOLD: Number(process.env.NEXT_PUBLIC_MA_SCORE_THRESHOLD ?? 60),
 } as const;
 
 // ===========================================
@@ -43,6 +44,19 @@ export const FINANCIAL_CONFIG = {
 } as const;
 
 // ===========================================
+// Pricing Configuration (env-aware)
+// L-5: Pricing amounts are now configurable via environment variables
+// ===========================================
+export const PRICING = {
+  /** Price of free tier (always 0) */
+  FREE: 0,
+  /** Price of Pro tier in EUR (default: €49) */
+  PRO: Number(process.env.NEXT_PUBLIC_PRICING_PRO ?? 49),
+  /** Price of Pro Plus tier in EUR (default: €99) */
+  PRO_PLUS: Number(process.env.NEXT_PUBLIC_PRICING_PRO_PLUS ?? 99),
+} as const;
+
+// ===========================================
 // Pricing Plans
 // ===========================================
 export const PRICING_PLANS = {
@@ -50,7 +64,7 @@ export const PRICING_PLANS = {
     id: 'free',
     name: 'Gratuito',
     description: 'Analisi di base per iniziare',
-    price: 0,
+    price: PRICING.FREE,
     features: [
       'Analisi semplificata del bilancio',
       'KPI principali con spiegazioni',
@@ -67,7 +81,7 @@ export const PRICING_PLANS = {
     id: 'pro',
     name: 'Pro',
     description: 'Analisi completa con benchmark',
-    price: 49,
+    price: PRICING.PRO,
     priceId: process.env.STRIPE_PRICE_FULL_ANALYSIS,
     features: [
       'Tutto del piano Gratuito',
@@ -83,7 +97,7 @@ export const PRICING_PLANS = {
     id: 'pro_plus',
     name: 'Pro Plus',
     description: 'Analisi premium illimitata',
-    price: 99,
+    price: PRICING.PRO_PLUS,
     priceId: process.env.STRIPE_PRICE_BENCHMARK_UNLIMITED,
     features: [
       'Tutto del piano Pro',
@@ -107,6 +121,21 @@ export const APP_CONFIG = {
   
   /** Rate limit for API calls (requests per minute) */
   RATE_LIMIT: Number(process.env.FINANCIAL_DATA_RATE_LIMIT) || 60,
+} as const;
+
+// ===========================================
+// Email Verification (L-6)
+// ===========================================
+export const EMAIL_VERIFICATION_CONFIG = {
+  /** 
+   * When true, users must verify their email before logging in.
+   * When false, login is allowed without verification (banner may be shown as reminder).
+   * Default: false for development convenience
+   */
+  REQUIRE_EMAIL_VERIFICATION: process.env.REQUIRE_EMAIL_VERIFICATION === 'true',
+  
+  /** Token expiration time in milliseconds (default: 24 hours) */
+  TOKEN_EXPIRY_MS: Number(process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY_MS ?? 24 * 60 * 60 * 1000),
 } as const;
 
 // ===========================================
