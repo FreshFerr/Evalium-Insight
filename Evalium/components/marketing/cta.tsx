@@ -29,7 +29,7 @@ export function CTASection() {
             <Button
               size="xl"
               variant="outline"
-              className="border-white/30 text-white hover:bg-white/10"
+              className="border-white/30 bg-transparent text-white hover:bg-white/10"
               asChild
             >
               <Link href="#pricing">Vedi i prezzi</Link>
@@ -40,4 +40,5 @@ export function CTASection() {
     </section>
   );
 }
+
 

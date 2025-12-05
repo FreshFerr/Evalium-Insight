@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
@@ -25,32 +26,13 @@ export function MarketingHeader() {
             href="/"
             className="flex items-center gap-2 text-xl font-bold text-evalium-700"
           >
-            <svg
+            <Image
+              src="/logo.png"
+              alt="Evalium"
+              width={32}
+              height={32}
               className="w-8 h-8"
-              viewBox="0 0 32 32"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect
-                x="2"
-                y="2"
-                width="28"
-                height="28"
-                rx="6"
-                className="fill-evalium-600"
-              />
-              <path
-                d="M8 12L12 8L20 8L24 12L24 20L20 24L12 24L8 20V12Z"
-                className="fill-white"
-              />
-              <path
-                d="M12 14H20M12 18H18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                className="stroke-evalium-600"
-              />
-            </svg>
+            />
             <span>Evalium</span>
           </Link>
 
@@ -123,4 +105,5 @@ export function MarketingHeader() {
     </header>
   );
 }
+
 
