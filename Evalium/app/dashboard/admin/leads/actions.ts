@@ -1,0 +1,136 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { auth } from '@/lib/auth';
+import prisma from '@/db';
+import { LeadStatus, UserRole } from '@prisma/client';
+import { createMAndALeadSchema } from '@/lib/validations/company';
+
+/**
+ * Update M&A lead status (Admin only)
+ */
+export async function updateLeadStatus(
+  leadId: string,
+  status: LeadStatus,
+  notes?: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await auth();
+
+  if (!session?.user?.id || session.user.role !== UserRole.ADMIN) {
+    return { success: false, error: 'Non autorizzato' };
+  }
+
+  try {
+    await prisma.mAndALead.update({
+      where: { id: leadId },
+      data: {
+        status,
+        notes: notes || undefined,
+        assignedTo: session.user.id,
+      },
+    });
+
+    revalidatePath('/dashboard/admin/leads');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update lead status error:', error);
+    return { success: false, error: 'Errore durante l\'aggiornamento' };
+  }
+}
+
+/**
+ * Create a new M&A lead with proper validation
+ */
+export async function createMAndALead(
+  input: {
+    companyId: string;
+    email: string;
+    phone?: string;
+    consent: boolean;
+    score?: number;
+    highlights?: string[];
+  }
+): Promise<{ success: boolean; error?: string; leadId?: string }> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return { success: false, error: 'Non autorizzato. Effettua il login.' };
+  }
+
+  // Validate input with Zod
+  const validationResult = createMAndALeadSchema.safeParse(input);
+  
+  if (!validationResult.success) {
+    const firstError = validationResult.error.errors[0];
+    return { 
+      success: false, 
+      error: firstError?.message || 'Dati non validi' 
+    };
+  }
+
+  const { companyId, email, phone, score, highlights } = validationResult.data;
+
+  try {
+    // Verify company ownership
+    const company = await prisma.company.findFirst({
+      where: {
+        id: companyId,
+        userId: session.user.id,
+      },
+      include: {
+        financialStatements: {
+          orderBy: { fiscalYear: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!company) {
+      return { success: false, error: 'Azienda non trovata o non autorizzato' };
+    }
+
+    // Check for existing lead
+    const existingLead = await prisma.mAndALead.findFirst({
+      where: {
+        companyId,
+        userId: session.user.id,
+      },
+    });
+
+    if (existingLead) {
+      return { success: false, error: 'Hai già inviato una richiesta per questa azienda' };
+    }
+
+    // Build reason data from financial statements
+    const latestStatement = company.financialStatements[0];
+    const reasonData = {
+      highlights: highlights || [],
+      revenue: latestStatement ? Number(latestStatement.revenue) : undefined,
+      ebitda: latestStatement ? Number(latestStatement.ebitda) : undefined,
+      growth: latestStatement?.revenueGrowth ? Number(latestStatement.revenueGrowth) : undefined,
+    };
+
+    // Create lead
+    const lead = await prisma.mAndALead.create({
+      data: {
+        companyId,
+        userId: session.user.id,
+        status: 'NEW',
+        maScore: score ?? null,
+        reason: reasonData,
+        hasUserConsented: true,
+        userContactEmail: email,
+        userContactPhone: phone || null,
+        consentDate: new Date(),
+      },
+    });
+
+    revalidatePath('/dashboard/admin/leads');
+
+    return { success: true, leadId: lead.id };
+  } catch (error) {
+    console.error('Create M&A lead error:', error);
+    return { success: false, error: 'Errore durante l\'invio della richiesta. Riprova più tardi.' };
+  }
+}

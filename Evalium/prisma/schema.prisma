@@ -1,0 +1,322 @@
+// ===========================================
+// Evalium - Prisma Schema
+// ===========================================
+// Production-ready schema for financial analysis platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ===========================================
+// Authentication Models (Auth.js compatible)
+// ===========================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // Hashed password for credentials provider
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  companies     Company[]
+  purchases     Purchase[]
+  mAndALeads    MAndALead[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+  @@map("password_reset_tokens")
+}
+
+// ===========================================
+// Domain Models
+// ===========================================
+
+model Company {
+  id        String   @id @default(cuid())
+  userId    String
+  legalName String
+  vatNumber String?
+  country   String   @default("IT")
+  industry  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  financialStatements FinancialStatement[]
+  reports             Report[]
+  mAndALeads          MAndALead[]
+
+  @@index([userId])
+  @@index([vatNumber])
+  @@map("companies")
+}
+
+model FinancialStatement {
+  id         String              @id @default(cuid())
+  companyId  String
+  fiscalYear Int
+  
+  // Income Statement
+  revenue         Decimal @db.Decimal(15, 2)
+  costOfGoodsSold Decimal? @db.Decimal(15, 2)
+  grossProfit     Decimal? @db.Decimal(15, 2)
+  operatingCosts  Decimal? @db.Decimal(15, 2)
+  ebitda          Decimal @db.Decimal(15, 2)
+  ebitdaMargin    Decimal @db.Decimal(5, 4) // Stored as decimal (0.1234 = 12.34%)
+  depreciation    Decimal? @db.Decimal(15, 2)
+  ebit            Decimal? @db.Decimal(15, 2)
+  interestExpense Decimal? @db.Decimal(15, 2)
+  netIncome       Decimal @db.Decimal(15, 2)
+  
+  // Balance Sheet
+  cashAndEquivalents Decimal? @db.Decimal(15, 2)
+  receivables        Decimal? @db.Decimal(15, 2)
+  inventory          Decimal? @db.Decimal(15, 2)
+  currentAssets      Decimal? @db.Decimal(15, 2)
+  fixedAssets        Decimal? @db.Decimal(15, 2)
+  totalAssets        Decimal @db.Decimal(15, 2)
+  
+  currentLiabilities Decimal? @db.Decimal(15, 2)
+  longTermDebt       Decimal? @db.Decimal(15, 2)
+  totalLiabilities   Decimal @db.Decimal(15, 2)
+  
+  equity             Decimal @db.Decimal(15, 2)
+  netDebt            Decimal? @db.Decimal(15, 2)
+  
+  // Computed/Derived
+  revenueGrowth      Decimal? @db.Decimal(5, 4) // YoY growth
+  netProfitMargin    Decimal? @db.Decimal(5, 4)
+  debtToEquityRatio  Decimal? @db.Decimal(5, 2)
+  currentRatio       Decimal? @db.Decimal(5, 2)
+  
+  // Metadata
+  source    FinancialDataSource @default(API)
+  currency  String              @default("EUR")
+  rawData   Json?               // Original API response for debugging
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, fiscalYear])
+  @@index([companyId])
+  @@index([fiscalYear])
+  @@map("financial_statements")
+}
+
+model Report {
+  id        String       @id @default(cuid())
+  companyId String
+  type      ReportType
+  status    ReportStatus @default(CREATED)
+  
+  // Analysis Results (stored as JSON for flexibility)
+  data Json? // Contains pre-computed analysis, narratives, scores
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  company              Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  benchmarkCompetitors BenchmarkCompetitor[]
+  purchases            Purchase[]
+
+  @@index([companyId])
+  @@index([type, status])
+  @@map("reports")
+}
+
+model BenchmarkCompetitor {
+  id                 String @id @default(cuid())
+  reportId           String
+  competitorName     String
+  competitorVatNumber String?
+  
+  // Competitor metrics stored as JSON for flexibility
+  metrics Json // Contains revenue, ebitda, margins, etc.
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("benchmark_competitors")
+}
+
+model Purchase {
+  id                    String         @id @default(cuid())
+  userId                String
+  reportId              String
+  
+  // Stripe Integration
+  stripePaymentIntentId String?        @unique
+  stripeCheckoutSessionId String?      @unique
+  stripeCustomerId      String?
+  
+  // Product Details
+  productType           ProductType
+  amount                Decimal        @db.Decimal(10, 2)
+  currency              String         @default("EUR")
+  
+  status                PurchaseStatus @default(PENDING)
+  
+  // Metadata
+  metadata              Json?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([reportId])
+  @@index([stripePaymentIntentId])
+  @@index([stripeCheckoutSessionId])
+  @@map("purchases")
+}
+
+model MAndALead {
+  id              String      @id @default(cuid())
+  companyId       String
+  userId          String
+  
+  status          LeadStatus  @default(NEW)
+  
+  // Why this company is interesting
+  reason          Json?       // { revenue, ebitda, growth, score, highlights }
+  maScore         Int?        // 0-100 attractiveness score
+  
+  // User consent and contact info
+  hasUserConsented Boolean    @default(false)
+  userContactEmail String
+  userContactPhone String?
+  consentDate      DateTime?
+  
+  // Internal management
+  notes           String?     @db.Text
+  assignedTo      String?     // Admin user handling this lead
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([status])
+  @@map("ma_leads")
+}
+
+// ===========================================
+// Enums
+// ===========================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum FinancialDataSource {
+  API
+  MANUAL
+}
+
+enum ReportType {
+  BASIC_ANALYSIS
+  FULL_ANALYSIS
+  BENCHMARK
+}
+
+enum ReportStatus {
+  CREATED
+  PAID
+  COMPLETED
+}
+
+enum ProductType {
+  SINGLE_REPORT
+  BENCHMARK_3
+  BENCHMARK_UNLIMITED
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  SENT_TO_PARTNER
+  CLOSED
+}
+
