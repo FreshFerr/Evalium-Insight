@@ -117,7 +117,7 @@ export const APP_CONFIG = {
   name: 'Evalium',
   description: 'Analisi del bilancio aziendale semplificata',
   url: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  supportEmail: 'supporto@evalium.it',
+  supportEmail: 'info.aivaluation@gmail.com',
   
   /** Rate limit for API calls (requests per minute) */
   RATE_LIMIT: Number(process.env.FINANCIAL_DATA_RATE_LIMIT) || 60,

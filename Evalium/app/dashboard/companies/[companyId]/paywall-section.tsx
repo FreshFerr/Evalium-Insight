@@ -138,3 +138,4 @@ export function PaywallSection({ companyId, companyName }: PaywallSectionProps) 
   );
 }
 
+

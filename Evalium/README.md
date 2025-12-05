@@ -205,5 +205,6 @@ Proprietario - Tutti i diritti riservati
 
 ## 👥 Supporto
 
-Per supporto tecnico: supporto@evalium.it
+Per supporto tecnico: info.aivaluation@gmail.com
+
 

@@ -21,16 +21,16 @@ export default async function AuthLayout({
         <div className="max-w-7xl mx-auto">
           <Link 
             href="/" 
-            className="inline-flex items-center gap-2 text-2xl font-bold text-evalium-700 hover:text-evalium-600 transition-colors"
+            className="inline-flex items-center"
           >
             <Image
               src="/logo.png"
               alt="Evalium"
-              width={32}
-              height={32}
-              className="w-8 h-8"
+              width={150}
+              height={40}
+              className="h-10 w-auto"
+              priority
             />
-            Evalium
           </Link>
         </div>
       </header>

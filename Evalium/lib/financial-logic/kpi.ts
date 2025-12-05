@@ -116,3 +116,4 @@ export function getCurrentRatioStatus(ratio: number | null): KPIStatus {
   return 'poor';
 }
 
+

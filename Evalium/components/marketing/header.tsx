@@ -24,16 +24,16 @@ export function MarketingHeader() {
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2 text-xl font-bold text-evalium-700"
+            className="flex items-center"
           >
             <Image
               src="/logo.png"
               alt="Evalium"
-              width={32}
-              height={32}
-              className="w-8 h-8"
+              width={150}
+              height={40}
+              className="h-10 w-auto"
+              priority
             />
-            <span>Evalium</span>
           </Link>
 
           {/* Desktop Navigation */}

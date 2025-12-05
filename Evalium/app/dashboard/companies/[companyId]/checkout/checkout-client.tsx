@@ -151,10 +151,10 @@ export function CheckoutClient({
               <p className="text-sm text-muted-foreground mb-3">
                 Contattaci a{' '}
                 <a
-                  href="mailto:supporto@evalium.it"
+                  href="mailto:info.aivaluation@gmail.com"
                   className="text-primary hover:underline"
                 >
-                  supporto@evalium.it
+                  info.aivaluation@gmail.com
                 </a>
               </p>
             </CardContent>
@@ -164,4 +164,5 @@ export function CheckoutClient({
     </div>
   );
 }
+
 

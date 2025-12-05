@@ -290,3 +290,4 @@ export function getKPIExplanation(kpiKey: string): string {
   return explanations[kpiKey] || 'Indicatore finanziario';
 }
 
+

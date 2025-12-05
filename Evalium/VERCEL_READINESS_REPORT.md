@@ -230,5 +230,6 @@ All identified issues have been addressed:
 
 ## Contact
 
-For deployment support: supporto@evalium.it
+For deployment support: info.aivaluation@gmail.com
+
 

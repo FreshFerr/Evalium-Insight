@@ -69,7 +69,7 @@ export function FAQSection() {
           </h2>
           <p className="text-lg text-muted-foreground">
             Tutto quello che devi sapere su Evalium. Non trovi la risposta che cerchi?{' '}
-            <a href="mailto:supporto@evalium.it" className="text-primary hover:underline">
+            <a href="mailto:info.aivaluation@gmail.com" className="text-primary hover:underline">
               Contattaci
             </a>
           </p>
@@ -98,4 +98,5 @@ export function FAQSection() {
     </section>
   );
 }
+
 

@@ -40,16 +40,16 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
         {/* Logo */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 text-xl font-bold text-evalium-700 lg:hidden"
+          className="flex items-center lg:hidden"
         >
           <Image
             src="/logo.png"
             alt="Evalium"
-            width={32}
-            height={32}
-            className="w-8 h-8"
+            width={150}
+            height={40}
+            className="h-10 w-auto"
+            priority
           />
-          <span>Evalium</span>
         </Link>
 
         {/* Right Side */}
