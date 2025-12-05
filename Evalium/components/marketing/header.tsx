@@ -18,7 +18,7 @@ export function MarketingHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b" style={{ backgroundColor: '#FBFBFB' }}>
       <div className="section-container">
         <nav className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -29,9 +29,9 @@ export function MarketingHeader() {
             <Image
               src="/logo.png"
               alt="Evalium"
-              width={150}
-              height={40}
-              className="h-10 w-auto"
+              width={180}
+              height={48}
+              className="h-12 w-auto"
               priority
             />
           </Link>
